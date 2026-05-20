@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Blackjack – jednoduchý poradce</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f2f24;
+      color: #f5f5f5;
+      padding: 26px;
+      line-height: 1.5;
+    }
+    .box {
+      background: #173f31;
+      border: 2px solid #d4af37;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 1050px;
+      margin: auto;
+      box-shadow: 0 0 20px rgba(0,0,0,0.35);
+    }
+    h1, h2, h3 { color: #ffd86b; }
+    button, select {
+      padding: 10px 14px;
+      margin: 8px 6px 8px 0;
+      border-radius: 8px;
+      border: none;
+      font-size: 15px;
+    }
+    button {
+      background: #d4af37;
+      color: #111;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background: #f0c84b; }
+    .section {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(212,175,55,0.5);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .card-box, .result, .stat {
+      background: #0b241b;
+      border: 1px solid #d4af37;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .result {
+      margin-top: 14px;
+      white-space: pre-wrap;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 15px;
+    }
+    .stat {
+      text-align: center;
+    }
+    .label {
+      color: #ddd;
+      font-size: 13px;
+    }
+    .value {
+      color: #ffd86b;
+      font-size: 26px;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+    .recommendation {
+      background: #ffd86b;
+      color: #111;
+      padding: 16px;
+      border-radius: 12px;
+      margin-top: 15px;
+      font-size: 22px;
+      font-weight: bold;
+      text-align: center;
+    }
+    .small {
+      color: #ddd;
+      font-size: 14px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 15px;
+      background: #0b241b;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid #d4af37;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background: #214f3e;
+      color: #ffd86b;
+    }
+  </style>
+</head>
+<body>
+<div class="box">
+  <h1>Blackjack – pravděpodobnost v praxi</h1>
+  <p>
+    Program porovnává dvě možnosti: <b>zůstat stát</b> nebo <b>vzít si jednu další kartu</b>.
+    Ve vlastní situaci můžeš po každém hitu zadat kartu, kterou sis opravdu vzal, a výpočty se hned přepočítají podle nového stavu.
+  </p>
+
+  <label><b>Model dealera:</b></label>
+  <select id="dealerMode">
+    <option value="classic">Dealer bere do 17</option>
+    <option value="one">Dealer si vezme jen jednu další kartu</option>
+  </select>
+
+  <br>
+  <button onclick="runRandomSimulation()">Spustit náhodnou simulaci</button>
+  <button onclick="showCommonHands()">Ukázat nejčastější dvojice</button>
+
+  <div id="randomOutput" class="result">Klikni na „Spustit náhodnou simulaci“.</div>
+
+  <div class="section">
+    <h2>Vlastní situace – průběh hry</h2>
+    <p class="small">
+      Nejdřív zadej svoje dvě karty a viditelnou kartu dealera. Potom můžeš přidávat karty, které sis reálně vzal.
+      Program vždy odečte známé karty z balíčku a přepočítá pravděpodobnosti.
+    </p>
+
+    <div class="grid">
+      <div class="card-box">
+        <b>Tvoje 1. karta</b><br>
+        <select id="startCard1"></select>
+      </div>
+      <div class="card-box">
+        <b>Tvoje 2. karta</b><br>
+        <select id="startCard2"></select>
+      </div>
+      <div class="card-box">
+        <b>Viditelná karta dealera</b><br>
+        <select id="dealerUpCard"></select>
+      </div>
+    </div>
+
+    <button onclick="startCustomGame()">Začít vlastní situaci</button>
+
+    <div id="customGameArea" style="display:none;">
+      <div class="grid">
+        <div class="card-box">
+          <b>Karta, kterou jsem si vzal</b><br>
+          <select id="hitCard"></select>
+          <button onclick="addPlayerHit()">Přidat hit</button>
+        </div>
+        <div class="card-box">
+          <b>Výsledek hry</b><br>
+          <button onclick="setGameResult('win')">Vyhrál jsem</button>
+          <button onclick="setGameResult('loss')">Prohrál jsem</button>
+          <button onclick="setGameResult('push')">Remíza</button>
+          <button onclick="setGameResult('none')">Ještě nevím</button>
+        </div>
+        <div class="card-box">
+          <b>Reset</b><br>
+          <button onclick="resetCustomGame()">Resetovat vlastní hru</button>
+        </div>
+      </div>
+
+      <div id="customOutput"></div>
+    </div>
+  </div>
+
+  <div id="commonHands"></div>
+
+  <p class="small">
+    Poznámka: 10 reprezentuje i J, Q a K. Eso se počítá jako 11, ale pokud by součet přesáhl 21, automaticky se počítá jako 1.
+    Jde o zjednodušenou školní simulaci, ne o kompletní profesionální blackjack strategii.
+  </p>
+</div>
+
+<script>
+const cardOptions = [
+  {name:"2", value:2}, {name:"3", value:3}, {name:"4", value:4},
+  {name:"5", value:5}, {name:"6", value:6}, {name:"7", value:7},
+  {name:"8", value:8}, {name:"9", value:9},
+  {name:"10 / J / Q / K", value:10}, {name:"A", value:11}
+];
+
+let customPlayerHand = [];
+let customDealerUpCard = null;
+let customResult = "none";
+
+function fillSelect(id) {
+  const select = document.getElementById(id);
+  cardOptions.forEach(card => {
+    const opt = document.createElement("option");
+    opt.value = card.value;
+    opt.textContent = card.name;
+    select.appendChild(opt);
+  });
+}
+
+function setup() {
+  ["startCard1","startCard2","dealerUpCard","hitCard"].forEach(fillSelect);
+  document.getElementById("startCard1").value = 10;
+  document.getElementById("startCard2").value = 6;
+  document.getElementById("dealerUpCard").value = 10;
+}
+setup();
+
+function createDeck() {
+  let deck = [];
+  for (let i = 0; i < 4; i++) {
+    deck.push(2,3,4,5,6,7,8,9,10,10,10,10,11);
+  }
+  return deck;
+}
+
+function removeCards(deck, cards) {
+  for (let card of cards) {
+    const index = deck.indexOf(card);
+    if (index !== -1) deck.splice(index, 1);
+  }
+}
+
+function handValue(hand) {
+  let total = hand.reduce((a,b) => a + b, 0);
+  let aces = hand.filter(x => x === 11).length;
+  while (total > 21 && aces > 0) {
+    total -= 10;
+    aces--;
+  }
+  return total;
+}
+
+function cardName(value) {
+  return value === 11 ? "A" : String(value);
+}
+
+function formatHand(hand) {
+  return hand.map(cardName).join(" + ");
+}
+
+function shuffle(deck) {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+}
+
+function seededRandom(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function makeSeed(cards, mode) {
+  let seed = 987654;
+  cards.forEach(c => seed = (seed * 37 + c * 101) % 2147483647);
+  if (mode === "classic") seed += 12345;
+  return seed;
+}
+
+function shuffleSeeded(deck, rand) {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+}
+
+function compare(player, dealer) {
+  if (player > 21) return "loss";
+  if (dealer > 21) return "win";
+  if (player > dealer) return "win";
+  if (player < dealer) return "loss";
+  return "push";
+}
+
+function dealerPlay(deck, dealerUpCard, mode) {
+  let hand;
+  if (dealerUpCard === null) {
+    hand = [deck.pop(), deck.pop()];
+  } else {
+    hand = [dealerUpCard, deck.pop()];
+  }
+
+  if (mode === "one") {
+    hand.push(deck.pop());
+    return handValue(hand);
+  }
+
+  while (handValue(hand) < 17 && deck.length > 0) {
+    hand.push(deck.pop());
+  }
+  return handValue(hand);
+}
+
+function hitQuality(playerHand, deck) {
+  const oldScore = handValue(playerHand);
+  let improve = 0, worsen = 0, same = 0, bust = 0;
+
+  deck.forEach(card => {
+    const newScore = handValue([...playerHand, card]);
+    if (newScore > 21) bust++;
+    else if (newScore > oldScore) improve++;
+    else if (newScore < oldScore) worsen++;
+    else same++;
+  });
+
+  const total = deck.length || 1;
+  return {
+    improve: improve / total * 100,
+    worsen: worsen / total * 100,
+    same: same / total * 100,
+    bust: bust / total * 100
+  };
+}
+
+function chance21(playerHand, deck) {
+  const needed = 21 - handValue(playerHand);
+  if (needed <= 0) return {needed, probability:0, count:0};
+  const count = deck.filter(c => c === needed).length;
+  return {needed, probability: count / deck.length * 100, count};
+}
+
+function decisionSimulation(playerHand, dealerUpCard, knownCards, mode, stable=true, simulations=2500) {
+  let standWins=0, standLosses=0, standPushes=0;
+  let hitWins=0, hitLosses=0, hitPushes=0, hitBusts=0;
+
+  let rand = stable ? seededRandom(makeSeed([...playerHand, ...(dealerUpCard !== null ? [dealerUpCard] : []), ...knownCards], mode)) : Math.random;
+
+  for (let i = 0; i < simulations; i++) {
+    let deckStand = createDeck();
+    removeCards(deckStand, [...playerHand, ...(dealerUpCard !== null ? [dealerUpCard] : []), ...knownCards]);
+    stable ? shuffleSeeded(deckStand, rand) : shuffle(deckStand);
+
+    const playerStand = handValue(playerHand);
+    const dealerStand = dealerPlay(deckStand, dealerUpCard, mode);
+    const standResult = compare(playerStand, dealerStand);
+    if (standResult === "win") standWins++;
+    else if (standResult === "loss") standLosses++;
+    else standPushes++;
+
+    let deckHit = createDeck();
+    removeCards(deckHit, [...playerHand, ...(dealerUpCard !== null ? [dealerUpCard] : []), ...knownCards]);
+    stable ? shuffleSeeded(deckHit, rand) : shuffle(deckHit);
+
+    const hitCard = deckHit.pop();
+    const hitHand = [...playerHand, hitCard];
+    const playerHit = handValue(hitHand);
+
+    if (playerHit > 21) {
+      hitLosses++;
+      hitBusts++;
+    } else {
+      const dealerHit = dealerPlay(deckHit, dealerUpCard, mode);
+      const hitResult = compare(playerHit, dealerHit);
+      if (hitResult === "win") hitWins++;
+      else if (hitResult === "loss") hitLosses++;
+      else hitPushes++;
+    }
+  }
+
+  return {
+    standWin: standWins / simulations * 100,
+    standLoss: standLosses / simulations * 100,
+    standPush: standPushes / simulations * 100,
+    hitWin: hitWins / simulations * 100,
+    hitLoss: hitLosses / simulations * 100,
+    hitPush: hitPushes / simulations * 100,
+    hitBust: hitBusts / simulations * 100
+  };
+}
+
+function recommendation(data) {
+  if (data.hitWin > data.standWin + 1) return "HITNOUT";
+  if (data.standWin > data.hitWin + 1) return "ZŮSTAT STÁT";
+  return "TĚSNÉ";
+}
+
+function renderStats(targetId, playerHand, dealerUpCard, knownCards, stable, includeDealerText) {
+  const mode = document.getElementById("dealerMode").value;
+  const deck = createDeck();
+  removeCards(deck, [...playerHand, ...(dealerUpCard !== null ? [dealerUpCard] : []), ...knownCards]);
+
+  const score = handValue(playerHand);
+  const quality = hitQuality(playerHand, deck);
+  const c21 = chance21(playerHand, deck);
+  const data = decisionSimulation(playerHand, dealerUpCard, knownCards, mode, stable, stable ? 2500 : 4000);
+  const rec = recommendation(data);
+
+  let resultText = "";
+  if (customResult === "win") resultText = "Zadaný výsledek: výhra";
+  else if (customResult === "loss") resultText = "Zadaný výsledek: prohra";
+  else if (customResult === "push") resultText = "Zadaný výsledek: remíza";
+  else resultText = "Výsledek hry zatím není zadaný";
+
+  let html = "";
+  html += "<div class='result'>";
+  html += "Tvoje aktuální ruka: " + formatHand(playerHand) + "<br>";
+  html += "Tvůj aktuální součet: " + score + "<br>";
+  if (dealerUpCard !== null) html += "Viditelná karta dealera: " + cardName(dealerUpCard) + "<br>";
+  if (knownCards.length > 0) html += "Další známé odehrané karty: " + knownCards.map(cardName).join(", ") + "<br>";
+  html += "Zbývá neznámých karet v balíčku: " + deck.length + "<br>";
+  html += resultText + "<br>";
+  html += includeDealerText;
+  html += "</div>";
+
+  html += "<div class='stats'>";
+  html += "<div class='stat'><div class='label'>Výhra bez dalšího hitu</div><div class='value'>" + data.standWin.toFixed(1) + " %</div></div>";
+  html += "<div class='stat'><div class='label'>Výhra po jednom hitu</div><div class='value'>" + data.hitWin.toFixed(1) + " %</div></div>";
+  html += "<div class='stat'><div class='label'>Šance na přesně 21</div><div class='value'>" + c21.probability.toFixed(1) + " %</div></div>";
+  html += "<div class='stat'><div class='label'>Ruka se zlepší</div><div class='value'>" + quality.improve.toFixed(1) + " %</div></div>";
+  html += "<div class='stat'><div class='label'>Ruka se zhorší</div><div class='value'>" + quality.worsen.toFixed(1) + " %</div></div>";
+  html += "<div class='stat'><div class='label'>Bust při hitu</div><div class='value'>" + quality.bust.toFixed(1) + " %</div></div>";
+  html += "</div>";
+
+  html += "<div class='recommendation'>Doporučení: " + rec + "</div>";
+  document.getElementById(targetId).innerHTML = html;
+}
+
+function runRandomSimulation() {
+  const mode = document.getElementById("dealerMode").value;
+  let deck = createDeck();
+  shuffle(deck);
+
+  const playerHand = [deck.pop(), deck.pop()];
+  const dealerUp = null;
+  const known = [];
+
+  renderStats("randomOutput", playerHand, dealerUp, known, false,
+    "Poznámka: zde není zadaná dealerova viditelná karta, dealer je tedy simulován jako náhodná ruka.<br>");
+}
+
+function startCustomGame() {
+  customPlayerHand = [
+    Number(document.getElementById("startCard1").value),
+    Number(document.getElementById("startCard2").value)
+  ];
+  customDealerUpCard = Number(document.getElementById("dealerUpCard").value);
+  customResult = "none";
+  document.getElementById("customGameArea").style.display = "block";
+  updateCustomOutput();
+}
+
+function addPlayerHit() {
+  if (customPlayerHand.length === 0) startCustomGame();
+  const card = Number(document.getElementById("hitCard").value);
+  customPlayerHand.push(card);
+  customResult = "none";
+  updateCustomOutput();
+}
+
+function setGameResult(result) {
+  customResult = result;
+  updateCustomOutput();
+}
+
+function resetCustomGame() {
+  customPlayerHand = [];
+  customDealerUpCard = null;
+  customResult = "none";
+  document.getElementById("customGameArea").style.display = "none";
+  document.getElementById("customOutput").innerHTML = "";
+}
+
+function updateCustomOutput() {
+  renderStats("customOutput", customPlayerHand, customDealerUpCard, [], true,
+    "Způsob výpočtu: rychlá stabilní simulace. Stejná situace dá stejné výsledky.<br>");
+}
+
+function allPossibleTwoCardHands() {
+  let deck = createDeck();
+  let hands = {};
+  for (let i = 0; i < deck.length; i++) {
+    for (let j = i + 1; j < deck.length; j++) {
+      let hand = [deck[i], deck[j]].sort((a,b) => a-b);
+      let key = hand.join(",");
+      if (!hands[key]) hands[key] = {hand: hand, count: 0};
+      hands[key].count++;
+    }
+  }
+  return Object.values(hands);
+}
+
+function showCommonHands() {
+  const hands = allPossibleTwoCardHands();
+  const totalCombos = 1326;
+
+  let rows = hands.map(item => {
+    const hand = item.hand;
+    let deck = createDeck();
+    removeCards(deck, hand);
+    const q = hitQuality(hand, deck);
+    const c = chance21(hand, deck);
+    return {
+      hand: formatHand(hand),
+      score: handValue(hand),
+      probability: item.count / totalCombos * 100,
+      c21: c.probability,
+      improve: q.improve,
+      worsen: q.worsen,
+      bust: q.bust
+    };
+  });
+
+  rows.sort((a,b) => b.probability - a.probability);
+
+  let html = "<div class='section'><h2>Nejpravděpodobnější dvojice karet</h2>";
+  html += "<p class='small'>Tato tabulka je čistě kombinatorická. Nezávisí na viditelné kartě dealera.</p>";
+  html += "<table><tr><th>Pořadí</th><th>Dvojice</th><th>Součet</th><th>Pravděpodobnost dvojice</th><th>Šance na 21 jedním hitem</th><th>Zlepšení hitu</th><th>Zhoršení hitu</th><th>Bust</th></tr>";
+
+  rows.slice(0, 12).forEach((r, i) => {
+    html += "<tr>";
+    html += "<td>" + (i+1) + "</td>";
+    html += "<td>" + r.hand + "</td>";
+    html += "<td>" + r.score + "</td>";
+    html += "<td>" + r.probability.toFixed(2) + " %</td>";
+    html += "<td>" + r.c21.toFixed(1) + " %</td>";
+    html += "<td>" + r.improve.toFixed(1) + " %</td>";
+    html += "<td>" + r.worsen.toFixed(1) + " %</td>";
+    html += "<td>" + r.bust.toFixed(1) + " %</td>";
+    html += "</tr>";
+  });
+
+  html += "</table></div>";
+  document.getElementById("commonHands").innerHTML = html;
+}
+</script>
+</body>
+</html>
