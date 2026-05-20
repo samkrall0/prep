@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Simulace míchání karet</title>
+<style>
+body{font-family:Arial,sans-serif;background:#0f2f24;color:#f5f5f5;padding:28px;line-height:1.5}
+.box{max-width:1050px;margin:auto;background:#173f31;border:2px solid #d4af37;border-radius:16px;padding:24px;box-shadow:0 0 20px rgba(0,0,0,.35)}
+h1,h2{color:#ffd86b}
+button,input,select{padding:10px 14px;margin:8px 6px 8px 0;border-radius:8px;border:none;font-size:15px}
+button{background:#d4af37;color:#111;font-weight:bold;cursor:pointer}
+button:hover{background:#f0c84b}
+.card{background:#0b241b;border:1px solid #d4af37;border-radius:12px;padding:14px;margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.stat{background:#0b241b;border:1px solid #d4af37;border-radius:12px;padding:14px;text-align:center}
+.label{color:#ddd;font-size:14px}
+.value{color:#ffd86b;font-weight:bold;font-size:28px;margin-top:5px}
+.result{background:#0b241b;padding:15px;border-radius:10px;margin-top:15px;white-space:pre-wrap}
+table{border-collapse:collapse;width:100%;margin-top:15px;background:#0b241b}
+th,td{border:1px solid #d4af37;padding:8px;text-align:center}
+th{background:#214f3e;color:#ffd86b}
+.small{font-size:14px;color:#ddd}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>Simulace míchání karet</h1>
+<p>
+Tato simulace ukazuje, proč je téměř nemožné zamíchat běžný balíček 52 karet dvakrát stejně.
+U malého balíčku lze všechny možnosti spočítat, ale u 52 karet je počet pořadí astronomický.
+</p>
+
+<div class="grid">
+<div class="card">
+<b>Velikost malého balíčku</b><br>
+<select id="smallDeck">
+<option value="3">3 karty</option>
+<option value="4">4 karty</option>
+<option value="5">5 karet</option>
+<option value="6">6 karet</option>
+<option value="7">7 karet</option>
+<option value="8">8 karet</option>
+</select>
+<button onclick="smallDeckDemo()">Ukázat všechny možnosti</button>
+</div>
+
+<div class="card">
+<b>Počet náhodných zamíchání</b><br>
+<input id="trials" type="number" value="1000" min="10" max="100000">
+<button onclick="randomShuffleDemo()">Spustit simulaci</button>
+</div>
+</div>
+
+<div id="summary"></div>
+<div id="smallOutput"></div>
+<div id="randomOutput"></div>
+
+<div class="card">
+<h2>Pointa simulace</h2>
+<p>
+U 3 karet existuje jen 6 pořadí. U 8 karet už 40 320 pořadí.  
+U 52 karet je počet možností:
+</p>
+<div class="result">52! ≈ 8,07 × 10^67</div>
+<p>
+To znamená, že každé reálné zamíchání balíčku je s obrovskou pravděpodobností unikátní.
+</p>
+</div>
+</div>
+
+<script>
+function factorial(n){
+  let result = 1n;
+  for(let i=2n;i<=BigInt(n);i++) result *= i;
+  return result;
+}
+
+function formatBigInt(num){
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+function createDeck(n){
+  let deck=[];
+  for(let i=1;i<=n;i++) deck.push(i);
+  return deck;
+}
+
+function shuffle(deck){
+  let arr=[...deck];
+  for(let i=arr.length-1;i>0;i--){
+    let j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function generatePermutations(arr){
+  if(arr.length===0) return [[]];
+  let result=[];
+  for(let i=0;i<arr.length;i++){
+    let current=arr[i];
+    let rest=arr.slice(0,i).concat(arr.slice(i+1));
+    for(let p of generatePermutations(rest)){
+      result.push([current,...p]);
+    }
+  }
+  return result;
+}
+
+function smallDeckDemo(){
+  let n=Number(document.getElementById("smallDeck").value);
+  let total=factorial(n);
+  let deck=createDeck(n);
+  let perms=generatePermutations(deck);
+
+  let html="<div class='card'><h2>Malý balíček: "+n+" karet</h2>";
+  html+="<div class='grid'>";
+  html+="<div class='stat'><div class='label'>Počet karet</div><div class='value'>"+n+"</div></div>";
+  html+="<div class='stat'><div class='label'>Počet možných pořadí</div><div class='value'>"+formatBigInt(total)+"</div></div>";
+  html+="</div>";
+  html+="<p class='small'>Ukázka prvních možností:</p>";
+  html+="<div class='result'>";
+  html+=perms.slice(0,25).map(p=>p.join(" - ")).join("\n");
+  if(perms.length>25) html+="\n...";
+  html+="</div></div>";
+  document.getElementById("smallOutput").innerHTML=html;
+}
+
+function randomShuffleDemo(){
+  let trials=Number(document.getElementById("trials").value);
+  let deck=createDeck(52);
+  let seen=new Set();
+  let duplicates=0;
+
+  for(let i=0;i<trials;i++){
+    let s=shuffle(deck).join(",");
+    if(seen.has(s)) duplicates++;
+    seen.add(s);
+  }
+
+  let html="<div class='card'><h2>Náhodné míchání 52 karet</h2>";
+  html+="<div class='grid'>";
+  html+="<div class='stat'><div class='label'>Počet pokusů</div><div class='value'>"+trials+"</div></div>";
+  html+="<div class='stat'><div class='label'>Unikátní zamíchání</div><div class='value'>"+seen.size+"</div></div>";
+  html+="<div class='stat'><div class='label'>Stejná zamíchání</div><div class='value'>"+duplicates+"</div></div>";
+  html+="</div>";
+  html+="<div class='result'>";
+  html+="Výsledek: ani po mnoha pokusech se stejné pořadí pravděpodobně vůbec nezopakuje.\n";
+  html+="Důvod: počet všech možností je tak obrovský, že šance na shodu je prakticky nulová.";
+  html+="</div></div>";
+  document.getElementById("randomOutput").innerHTML=html;
+}
+
+function summary(){
+  let values=[3,4,5,6,7,8,10,20,52];
+  let html="<div class='card'><h2>Jak rychle roste počet možností?</h2>";
+  html+="<table><tr><th>Počet karet</th><th>Počet pořadí</th></tr>";
+  for(let n of values){
+    let val = n===52 ? "≈ 8,07 × 10^67" : formatBigInt(factorial(n));
+    html+="<tr><td>"+n+"</td><td>"+val+"</td></tr>";
+  }
+  html+="</table></div>";
+  document.getElementById("summary").innerHTML=html;
+}
+summary();
+</script>
+</body>
+</html>
